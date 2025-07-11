@@ -1,99 +1,83 @@
 #!/bin/sh
 
 #
-
-if python --version 2>&1 | grep -q '^Python 3\.'; then
-   echo "You have Python3 image"
-   PYTHON='PY3'
+PYTHON_VERSION=$(python -c "import platform; print(platform.python_version())" 2>/dev/null)
+if echo "$PYTHON_VERSION" | grep -q '^3\.'; then
+   PYTHON="PY3"
+elif echo "$PYTHON_VERSION" | grep -q '^2\.'; then
+   PYTHON="PY2"
 else
-   echo "You have Python2 image"
-   PYTHON='PY2'
+   echo "> Python not found!"
+   exit 1
 fi
 
-if [ $PYTHON = "PY3" ]; then
-   opkg update && opkg upgrade
-   opkg install p7zip
-   opkg install wget 
-   opkg install curl  
-   opkg install python3-lxml 
-   opkg install python3-requests  
-   opkg install python3-beautifulsoup4   
-   opkg install python3-cfscrape 
-   opkg install livestreamersrv 
-   opkg install python3-six 
-   opkg install python3-sqlite3 
-   opkg install python3-pycrypto 
-   opkg install f4mdump python3-image  
-   opkg install python3-imaging  
-   opkg install python3-argparse 
-   opkg install python3-multiprocessing
-   opkg install python3-mmap 
-   opkg install python3-ndg-httpsclient  
-   opkg install python3-pydoc 
-   opkg install python3-xmlrpc
-   opkg install python3-certifi 
-   opkg install python3-urllib3 
-   opkg install python3-chardet
-   opkg install python3-pysocks 
-   opkg install python3-js2py 
-   opkg install python3-pillow
-   opkg update
-   opkg install enigma2-plugin-systemplugins-serviceapp
-   opkg install ffmpeg
-   opkg install exteplayer3
-   opkg install gstplayer
-   opkg update
-   opkg install gstreamer1.0-plugins-good
-   opkg install gstreamer1.0-plugins-ugly
-   opkg install gstreamer1.0-plugins-base
-   opkg install gstreamer1.0-plugins-bad
+#
+if command -v apt-get >/dev/null 2>&1; then
+    INSTALL="apt-get install -y"
+    CHECK_INSTALLED="dpkg -l"
+    OS='DreamOS'
+    apt-get update >/dev/null 2>&1
+elif command -v opkg >/dev/null 2>&1; then
+    INSTALL="opkg install --force-reinstall --force-depends"
+    CHECK_INSTALLED="opkg list-installed"
+    OS='Opensource'
 else
-   opkg update && opkg upgrade
-   opkg update
-   opkg install 
-   opkg install wget 
-   opkg install curl  
-   opkg install hlsdl 
-   opkg install python-lxml 
-   opkg install python-requests 
-   opkg install python-beautifulsoup4 
-   opkg install python-cfscrape 
-   opkg install livestreamer 
-   opkg install vlivestreamersrv 
-   opkg install python-six 
-   opkg install python-sqlite3 
-   opkg install python-pycrypto 
-   opkg install f4mdump 
-   opkg install python-image 
-   opkg install python-imaging 
-   opkg install python-argparse 
-   opkg install python-multiprocessing 
-   opkg install python-mmap 
-   opkg install python-ndg-httpsclient 
-   opkg install python-pydoc python-xmlrpc 
-   opkg install python-certifi 
-   opkg install python-urllib3 
-   opkg install python-chardet 
-   opkg install python-pysocks
-   opkg install enigma2-plugin-systemplugins-serviceapp
-    opkg install ffmpeg
-    opkg install exteplayer3
-    opkg install gstplayer
-    opkg update
-    opkg install gstreamer1.0-plugins-good
-    opkg install gstreamer1.0-plugins-ugly
-    opkg install gstreamer1.0-plugins-base
-    opkg install gstreamer1.0-plugins-bad
+    echo "> No package manager found!"
+    exit 1
 fi
+#
+COMMON_PACKAGES="wget tar zip ar curl alsa-plugins alsa-conf alsa-state libasound2 libc6 libgcc1 libstdc++6 \
+gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
+ffmpeg exteplayer3 gstplayer enigma2 enigma2-plugin-systemplugins-serviceapp"
 
-echo ""
-sync
-echo ""
-echo "#         Enigma TOOLS $version INSTALLED SUCCESSFULLY              #"
-echo "**************************************************************"
-echo "#              your Device will RESTART Now                  #"
-echo "**************************************************************"
-reboot
-wait
-sleep 2;
+#
+PY3_PACKAGES="python3-lxml python3-requests python3-beautifulsoup4 python3-rarfile python3-cfscrape \
+livestreamersrv python3-six python3-sqlite3 python3-pycrypto f4mdump python3-image python3-imaging \
+python3-argparse python3-multiprocessing python3-mmap python3-ndg-httpsclient python3-pydoc python3-xmlrpc \
+python3-certifi python3-urllib3 python3-chardet python3-pysocks python3-js2py python3-pillow"
+
+# 
+PY2_PACKAGES="python-lxml python-requests python-beautifulsoup4 python-rarfile python-cfscrape \
+livestreamer python-six python-sqlite3 python-pycrypto f4mdump python-image python-imaging \
+python-argparse python-multiprocessing python-mmap python-ndg-httpsclient python-pydoc python-xmlrpc \
+python-certifi python-urllib3 python-chardet python-pysocks"
+
+#
+case "$PYTHON_VERSION" in
+2.7.18)
+    EXTRA_LIBS="libavcodec58 libavformat58 libpython2.7-1.0"
+    ;;
+3.9.9)
+    EXTRA_LIBS="libavcodec58 libavformat58 libpython3.9-1.0"
+    ;;
+3.10.*)
+    EXTRA_LIBS="libavcodec60 libavformat60 libpython3.10-1.0"
+    ;;
+3.11.*)
+    EXTRA_LIBS="libavcodec60 libavformat60 libpython3.11-1.0"
+    ;;
+3.12.*)
+    EXTRA_LIBS="libavcodec60 libavformat60 libpython3.12-1.0"
+    ;;
+*)
+    EXTRA_LIBS="libavcodec58 libavformat58"
+    ;;
+esac
+
+# 
+ALL_PACKAGES="$COMMON_PACKAGES $EXTRA_LIBS"
+[ "$PYTHON" = "PY3" ] && ALL_PACKAGES="$ALL_PACKAGES $PY3_PACKAGES"
+[ "$PYTHON" = "PY2" ] && ALL_PACKAGES="$ALL_PACKAGES $PY2_PACKAGES"
+
+# 
+for pkg in $ALL_PACKAGES; do
+    if ! $CHECK_INSTALLED | grep -qw "$pkg"; then
+        echo "> Installing: $pkg"
+        $INSTALL "$pkg" >/dev/null 2>&1
+    fi
+done
+
+echo "> Done. All packages installed."
 exit 0
+
+
